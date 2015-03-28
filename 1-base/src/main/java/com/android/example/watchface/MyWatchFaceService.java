@@ -20,6 +20,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -97,6 +99,8 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
         private float mCenterX;
         private float mCenterY;
 
+        private Bitmap mBackgroundBitmap;
+
         @Override
         public void onCreate(SurfaceHolder holder) {
             super.onCreate(holder);
@@ -109,6 +113,9 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(Color.BLACK);
+
+            mBackgroundBitmap = BitmapFactory.decodeResource(
+                    getResources(), R.drawable.custom_background);
 
             mHandPaint = new Paint();
             mHandPaint.setColor(Color.WHITE);
@@ -146,25 +153,16 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
             updateTimer();
         }
 
+        private float mScale = 1;
+
         @Override
-        public void onSurfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        public void onSurfaceChanged(SurfaceHolder holder,
+                                     int format, int width, int height) {
             super.onSurfaceChanged(holder, format, width, height);
-            mWidth = width;
-            mHeight = height;
-            /*
-             * Find the coordinates of the center point on the screen.
-             * Ignore the window insets so that, on round watches
-             * with a "chin", the watch face is centered on the entire screen,
-             * not just the usable portion.
-             */
-            mCenterX = mWidth / 2f;
-            mCenterY = mHeight / 2f;
-            /*
-             * Calculate the lengths of the watch hands and store them in member variables.
-             */
-            mHourHandLength = mCenterX - 80;
-            mMinuteHandLength = mCenterX - 40;
-            mSecondHandLength = mCenterX - 20;
+            float mScale = ((float) width / (float) mBackgroundBitmap.getWidth());
+            mBackgroundBitmap = Bitmap.createScaledBitmap(mBackgroundBitmap,
+                    (int) (mBackgroundBitmap.getWidth() * mScale),
+                    (int) (mBackgroundBitmap.getHeight() * mScale), true);
         }
 
         @Override
@@ -172,7 +170,7 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
             mTime.setToNow();
 
             // Draw the background.
-            canvas.drawRect(0, 0, canvas.getWidth(), canvas.getHeight(), mBackgroundPaint);
+            canvas.drawBitmap(mBackgroundBitmap, 0, 0, mBackgroundPaint);
 
             /*
              * These calculations reflect the rotation in degrees per unit of
