@@ -24,6 +24,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.Handler;
@@ -100,6 +102,10 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
         private float mCenterY;
 
         private Bitmap mBackgroundBitmap;
+        private Bitmap mGrayBackgroundBitmap;
+
+        private static final float HAND_END_CAP_RADIUS = 4f;
+        private static final float SHADOW_RADIUS = 6f;
 
         @Override
         public void onCreate(SurfaceHolder holder) {
@@ -113,6 +119,8 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(Color.BLACK);
+            mBackgroundPaint.setShadowLayer (SHADOW_RADIUS, 0, 0, Color.BLACK);
+            mBackgroundPaint.setStyle(Paint.Style.STROKE);
 
             mBackgroundBitmap = BitmapFactory.decodeResource(
                     getResources(), R.drawable.custom_background);
@@ -159,10 +167,22 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
         public void onSurfaceChanged(SurfaceHolder holder,
                                      int format, int width, int height) {
             super.onSurfaceChanged(holder, format, width, height);
+            mWidth = width;
+            mHeight = height;
+
+            mCenterX = mWidth / 2f;
+            mCenterY = mHeight / 2f;
+
+            mHourHandLength = mCenterX * 0.5f;
+            mMinuteHandLength = mCenterX * 0.7f;
+            mSecondHandLength = mCenterX * 0.9f;
+
             float mScale = ((float) width / (float) mBackgroundBitmap.getWidth());
             mBackgroundBitmap = Bitmap.createScaledBitmap(mBackgroundBitmap,
                     (int) (mBackgroundBitmap.getWidth() * mScale),
                     (int) (mBackgroundBitmap.getHeight() * mScale), true);
+
+            initGrayBackgroundBitmap();
         }
 
         @Override
@@ -170,7 +190,11 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
             mTime.setToNow();
 
             // Draw the background.
-            canvas.drawBitmap(mBackgroundBitmap, 0, 0, mBackgroundPaint);
+            if (mAmbient) {
+                canvas.drawBitmap(mGrayBackgroundBitmap, 0, 0 ,mBackgroundPaint);
+            } else {
+                canvas.drawBitmap(mBackgroundBitmap, 0, 0 ,mBackgroundPaint);
+            }
 
             /*
              * These calculations reflect the rotation in degrees per unit of
@@ -182,22 +206,50 @@ public class MyWatchFaceService extends CanvasWatchFaceService {
             final float hourHandOffset = mTime.minute / 2f;
             final float hoursRotation = (mTime.hour * 30) + hourHandOffset;
 
-            // save the canvas state before we begin to rotate it
             canvas.save();
 
+            // Hours
             canvas.rotate(hoursRotation, mCenterX, mCenterY);
-            canvas.drawLine(mCenterX, mCenterY, mCenterX, mCenterY - mHourHandLength, mHandPaint);
+            drawHand(canvas, mHourHandLength);
 
+            // Minutes
             canvas.rotate(minutesRotation - hoursRotation, mCenterX, mCenterY);
-            canvas.drawLine(mCenterX, mCenterY, mCenterX, mCenterY - mMinuteHandLength, mHandPaint);
+            drawHand(canvas, mMinuteHandLength);
 
-            if (!mAmbient) {
-                canvas.rotate(secondsRotation - minutesRotation, mCenterX, mCenterY);
-                canvas.drawLine(mCenterX, mCenterY, mCenterX, mCenterY - mSecondHandLength,
-                        mHandPaint);
-            }
-            // restore the canvas' original orientation.
+            // Seconds
+            canvas.rotate(secondsRotation - minutesRotation, mCenterX, mCenterY);
+            canvas.drawLine(mCenterX, mCenterY - HAND_END_CAP_RADIUS, mCenterX, mCenterY - mSecondHandLength, mHandPaint);
+
+            canvas.drawCircle(mCenterX, mCenterY, HAND_END_CAP_RADIUS, mHandPaint);
+
             canvas.restore();
+
+        }
+
+        private void drawHand(Canvas canvas, float handLength) {
+            canvas.drawRoundRect(
+                    mCenterX - HAND_END_CAP_RADIUS,
+                    mCenterY - handLength,
+                    mCenterX + HAND_END_CAP_RADIUS,
+                    mCenterY + HAND_END_CAP_RADIUS,
+                    HAND_END_CAP_RADIUS,
+                    HAND_END_CAP_RADIUS,
+                    mHandPaint);
+        }
+
+        private void initGrayBackgroundBitmap() {
+            mGrayBackgroundBitmap = Bitmap.createBitmap(
+                    mBackgroundBitmap.getWidth(),
+                    mBackgroundBitmap.getHeight(),
+                    Bitmap.Config.ARGB_8888
+            );
+            Canvas canvas = new Canvas(mGrayBackgroundBitmap);
+            Paint grayPaint = new Paint();
+            ColorMatrix colorMatrix = new ColorMatrix();
+            colorMatrix.setSaturation(0);
+            ColorMatrixColorFilter filter = new ColorMatrixColorFilter(colorMatrix);
+            grayPaint.setColorFilter(filter);
+            canvas.drawBitmap(mBackgroundBitmap, 0, 0, grayPaint);
         }
 
         @Override
